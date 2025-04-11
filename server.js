@@ -1,4 +1,5 @@
 const http = require('http');
+const { v4: uuidv4 } = require('uuid');
 const Koa = require('koa');
 const { koaBody } = require('koa-body');
 const app = new Koa();
@@ -69,11 +70,21 @@ app.use(async (ctx, next) => {
 	const { method, id } = ctx.request.query;
 	switch (method) {
 		case 'allTickets': {
+			if (!tickets) {
+				ctx.response.body = 'Tickets';
+				ctx.response.status = 404;
+				return;
+			}
 			ctx.response.body = tickets;
 			return;
 		}
 		case 'ticketById': {
 			const ticket = tickets.find(ticket => ticket.id === id);
+			if (!ticket) {
+				ctx.response.body = 'Ticket not found';
+				ctx.response.status = 404;
+				return;
+			}
 			ctx.response.body = ticket;
 			return;
 		}
@@ -89,13 +100,11 @@ app.use(async (ctx, next) => {
 	if (ctx.method !== 'POST') {
 		return await next();
 	}
-	if (tickets.findIndex(ticket => ticket.id === ctx.request.body.id) >= 0) {
-		ctx.response.status = 400;
-		ctx.response.body = 'Ticket already created';
-		return;
-	}
-	tickets.push(ctx.request.body);
-	ctx.response.body = 'Added';
+	const newTicket = { ...ctx.request.body };
+	const ticketId = uuidv4();
+	newTicket.id = ticketId;
+	tickets.push(newTicket);
+	ctx.response.body = { id: ticketId };
 });
 
 app.use(async (ctx, next) => {
@@ -108,6 +117,7 @@ app.use(async (ctx, next) => {
 	if (findIndex === -1) {
 		ctx.response.status = 404;
 		ctx.response.body = 'Ticket not found';
+		return;
 	}
 	tickets.splice(findIndex, 1, ctx.request.body);
 	ctx.response.body = 'Ticket was redacted';
